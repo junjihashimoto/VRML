@@ -1,304 +1,237 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Lib
     ( someFunc
     ) where
 
+
+import Data.Int
+import Data.Void
+import Data.Text hiding (empty)
+import Text.Megaparsec
+import Text.Megaparsec.Char
+import Text.Megaparsec.Char.Lexer as L
+  
+type Parser = Parsec Void String
+
 someFunc :: IO ()
 someFunc = putStrLn "someFunc"
 
+
+sc :: Parser ()
+sc = L.space space1 empty empty
+
+lexm :: Parser a -> Parser a
+lexm = L.lexeme sc
+
 data VrmlScene = VrmlScene [Statement]
+  deriving (Show,Eq)
 
 data Statement
-  = NodeStatement' NodeStatement 
-  | ProtoStatement'
-  | RouteStatement'
+  = StatementNodeStatement NodeStatement
+  | StatementProtoStatement ProtoStatement
+  | StatementRouteStatement RouteStatement
+  deriving (Show,Eq)
 
 data NodeStatement
-  = Node' Node
-  | DEF' NodeNameId Node
-  | USE' NodeNameId
-
-data RootNodeStatement
-  = Node'' Node
-  | DEF'' NodeNameId Node
-
-{-
-
-protoStatement ::=
-  proto |
-  externproto ;
-
-protoStatements ::=
-  protoStatement |
-  protoStatement protoStatements |
-  empty ;
-
-proto ::=
-  PROTO nodeTypeId [ interfaceDeclarations ] { protoBody } ;
-
-protoBody ::=
-  protoStatements rootNodeStatement statements ;
-
-interfaceDeclarations ::=
-  interfaceDeclaration |
-  interfaceDeclaration interfaceDeclarations |
-  empty ;
-
-restrictedInterfaceDeclaration ::=
-  eventIn fieldType eventInId |
-  eventOut fieldType eventOutId |
-  field fieldType fieldId fieldValue ;
-
-interfaceDeclaration ::=
-  restrictedInterfaceDeclaration |
-  exposedField fieldType fieldId fieldValue ;
-
-externproto ::=
-  EXTERNPROTO nodeTypeId [ externInterfaceDeclarations ] URLList ;
-
-externInterfaceDeclarations ::=
-  externInterfaceDeclaration |
-  externInterfaceDeclaration externInterfaceDeclarations |
-  empty ;
-
-externInterfaceDeclaration ::=
-  eventIn fieldType eventInId |
-  eventOut fieldType eventOutId |
-  field fieldType fieldId |
-  exposedField fieldType fieldId ;
-
-routeStatement ::=
-  ROUTE nodeNameId . eventOutId TO nodeNameId . eventInId ;
-
-URLList ::=
-  mfstringValue ;
-
-empty ::=
-  ;
-
-node ::=
-  nodeTypeId { nodeBody } |
-  Script { scriptBody } ;
-
-nodeBody ::=
-  nodeBodyElement |
-  nodeBodyElement nodeBody |
-  empty ;
-
-scriptBody ::=
-  scriptBodyElement |
-  scriptBodyElement scriptBody |
-  empty ;
-
-scriptBodyElement ::=
-  nodeBodyElement |
-  restrictedInterfaceDeclaration |
-  eventIn fieldType eventInId IS eventInId |
-  eventOut fieldType eventOutId IS eventOutId |
-  field fieldType fieldId IS fieldId ;
-
-nodeBodyElement ::=
-  fieldId fieldValue |
-  fieldId IS fieldId |
-  eventInId IS eventInId |
-  eventOutId IS eventOutId |
-  routeStatement |
-  protoStatement ;
-
-nodeNameId ::=
-  Id ;
-
-nodeTypeId ::=
-  Id ;
-
-fieldId ::=
-  Id ;
-
-eventInId ::=
-  Id ;
-
-eventOutId ::=
-  Id ;
-
-Id ::=
-  IdFirstChar |
-  IdFirstChar IdRestChars ;
-
-IdFirstChar ::=
-  Any ISO-10646 character encoded using UTF-8 except: 0x30-0x39, 0x0-0x20, 0x22, 0x23, 0x27, 0x2b, 0x2c, 0x2d, 0x2e, 0x5b, 0x5c, 0x5d, 0x7b, 0x7d, 0x7f ;
-
-IdRestChars ::=
-  Any number of ISO-10646 characters except: 0x0-0x20, 0x22, 0x23, 0x27, 0x2c, 0x2e, 0x5b, 0x5c, 0x5d, 0x7b, 0x7d, 0x7f ;
-
-
-fieldType ::=
-  MFColor |
-  MFFloat |
-  MFInt32 |
-  MFNode |
-  MFRotation |
-  MFString |
-  MFTime |
-  MFVec2f |
-  MFVec3f |
-  SFBool |
-  SFColor |
-  SFFloat |
-  SFImage |
-  SFInt32 |
-  SFNode |
-  SFRotation |
-  SFString |
-  SFTime |
-  SFVec2f |
-  SFVec3f ;
-
-fieldValue ::=
-  sfboolValue |
-  sfcolorValue |
-  sffloatValue |
-  sfimageValue |
-  sfint32Value |
-  sfnodeValue |
-  sfrotationValue |
-  sfstringValue |
-  sftimeValue |
-  sfvec2fValue |
-  sfvec3fValue |
-  mfcolorValue |
-  mffloatValue |
-  mfint32Value |
-  mfnodeValue |
-  mfrotationValue |
-  mfstringValue |
-  mftimeValue |
-  mfvec2fValue |
-  mfvec3fValue ;
-
-sfboolValue ::=
-  TRUE |
-  FALSE ;
-
-sfcolorValue ::=
-  float float float ;
-
-sffloatValue ::=
-  float ;
-
-float ::=
-  ([+/-]?((([0-9]+(\.)?)|([0-9]*\.[0-9]+))([eE][+\-]?[0-9]+)?)).
-
-sfimageValue ::=
-  int32 int32 int32 ...
-
-sfint32Value ::=
-  int32 ;
-
-int32 ::=
-  ([+\-]?(([0-9]+)|(0[xX][0-9a-fA-F]+)))
-
-sfnodeValue ::=
-  nodeStatement |
-  NULL ;
-
-sfrotationValue ::=
-  float float float float ;
-
-sfstringValue ::=
-  string ;
-
-string ::=
-  ".*" ... double-quotes must be \", backslashes must be \\...
-
-sftimeValue ::=
-  double ;
-
-double ::=
-  ([+/-]?((([0-9]+(\.)?)|([0-9]*\.[0-9]+))([eE][+\-]?[0-9]+)?))
-
-mftimeValue ::=
-  sftimeValue |
-  [ ] |
-  [ sftimeValues ] ;
-
-sftimeValues ::=
-  sftimeValue |
-  sftimeValue sftimeValues ;
-
-sfvec2fValue ::=
-  float float ;
-
-sfvec3fValue ::=
-  float float float ;
-
-mfcolorValue ::=
-  sfcolorValue |
-  [ ] |
-  [ sfcolorValues ] ;
-
-sfcolorValues ::=
-  sfcolorValue |
-  sfcolorValue sfcolorValues ;
-
-mffloatValue ::=
-  sffloatValue |
-  [ ] |
-  [ sffloatValues ] ;
-
-sffloatValues ::=
-  sffloatValue |
-  sffloatValue sffloatValues ;
-
-mfint32Value ::=
-  sfint32Value |
-  [ ] |
-  [ sfint32Values ] ;
-
-sfint32Values ::=
-  sfint32Value |
-  sfint32Value sfint32Values ;
-
-mfnodeValue ::=
-  nodeStatement |
-  [ ] |
-  [ nodeStatements ] ;
-
-nodeStatements ::=
-  nodeStatement |
-  nodeStatement nodeStatements ;
-
-mfrotationValue ::=
-  sfrotationValue |
-  [ ] |
-  [ sfrotationValues ] ;
-
-sfrotationValues ::=
-  sfrotationValue |
-  sfrotationValue sfrotationValues ;
-
-mfstringValue ::=
-  sfstringValue |
-  [ ] |
-  [ sfstringValues ] ;
-
-sfstringValues ::=
-  sfstringValue |
-  sfstringValue sfstringValues ;
-
-mfvec2fValue ::=
-  sfvec2fValue |
-  [ ] |
-  [ sfvec2fValues] ;
-
-sfvec2fValues ::=
-  sfvec2fValue |
-  sfvec2fValue sfvec2fValues ;
-
-mfvec3fValue ::=
-  sfvec3fValue |
-  [ ] |
-  [ sfvec3fValues ] ;
-
-sfvec3fValues ::=
-  sfvec3fValue |
-  sfvec3fValue sfvec3fValues ;
--}
+  = NodeStatementN Node
+  | NodeStatementD NodeNameId Node
+  | NodeStatementU NodeNameId
+  deriving (Show,Eq)
+
+data ProtoStatement
+  = Proto NodeTypeId [InterfaceDeclaration] ProtoBody
+  | ExternProto NodeTypeId [ExternInterfaceDeclaration] URLList
+  deriving (Show,Eq)
+
+data ProtoBody
+  = ProtoBody [ProtoStatement] (Maybe NodeNameId) Node [Statement]
+  deriving (Show,Eq)
+
+data RestrictedInterfaceDeclaration
+  = RestrictedInterfaceDeclarationEventIn FieldType EventInId
+  | RestrictedInterfaceDeclarationEventOut FieldType EventOutId
+  | RestrictedInterfaceDeclarationField FieldType FieldId FieldValue
+  deriving (Show,Eq)
+
+data InterfaceDeclaration
+  = InterfaceDeclaration RestrictedInterfaceDeclaration
+  | InterfaceDeclarationExposedField FieldType FieldId FieldValue
+  deriving (Show,Eq)
+
+data ExternInterfaceDeclaration
+  = ExternInterfaceDeclarationEventIn FieldType EventInId
+  | ExternInterfaceDeclarationEventOut FieldType EventOutId
+  | ExternInterfaceDeclarationField FieldType FieldId
+  | ExternInterfaceDeclarationExposedField FieldType FieldId
+  deriving (Show,Eq)
+
+data RouteStatement
+  = RouteStatement NodeNameId EventOutId NodeNameId EventInId
+  deriving (Show,Eq)
+
+data URLList = URLList String
+  deriving (Show,Eq)
+
+data Node
+  = Node NodeTypeId [NodeBodyElement]
+  | Script [ScriptBodyElement]
+  deriving (Show,Eq)
+
+data ScriptBodyElement
+  = ScriptBodyElementN NodeBodyElement
+  | ScriptBodyElementR RestrictedInterfaceDeclaration
+  | ScriptBodyElementEI FieldType EventInId EventInId
+  | ScriptBodyElementEO FieldType EventOutId EventOutId
+  | ScriptBodyElementF FieldType FieldId FieldId
+  deriving (Show,Eq)
+
+data NodeBodyElement
+  = NodeBodyElementFV FieldId FieldValue
+  | NodeBodyElementFI FieldId FieldId
+  | NodeBodyElementEI EventInId EventInId
+  | NodeBodyElementEO EventOutId EventOutId
+  | NodeBodyElementR RouteStatement
+  | NodeBodyElementP ProtoStatement
+  deriving (Show,Eq)
+
+data NodeNameId = NodeNameId String
+  deriving (Show,Eq)
+
+data NodeTypeId = NodeTypeId String
+  deriving (Show,Eq)
+
+data FieldId = FieldId String
+  deriving (Show,Eq)
+
+data EventInId = EventInId String
+  deriving (Show,Eq)
+
+data EventOutId = EventOutId String
+  deriving (Show,Eq)
+
+data FieldType
+  = MFColor
+  | MFFloat
+  | MFString
+  | MFTime
+  | MFVec2f
+  | MFVec3f
+  | SFBool
+  | SFColor
+  | SFFloat
+  | SFImage
+  | SFInt32
+  | SFNode
+  | SFRotation
+  | SFString
+  | SFTime
+  | SFVec2f
+  | SFVec3f
+  deriving (Show,Eq)
+
+-- | parser of FieldType
+--
+-- >>> parseTest parseFieldType "MFColor"
+-- MFColor
+-- >>> parseTest parseFieldType "MFString"
+-- MFString
+-- >>> parseTest parseFieldType "SFColor"
+-- SFColor
+parseFieldType :: Parser FieldType
+parseFieldType
+  =   (string "MFColor" >> pure MFColor)
+  <|> (string "MFFloat" >> pure MFFloat)
+  <|> (string "MFString" >> pure MFString)
+  <|> (string "MFTime" >> pure MFTime)
+  <|> (string "MFVec2f" >> pure MFVec2f)
+  <|> (string "MFVec3f" >> pure MFVec3f)
+  <|> (string "SFBool" >> pure SFBool)
+  <|> (string "SFColor" >> pure SFColor)
+  <|> (string "SFFloat" >> pure SFFloat)
+  <|> (string "SFImage" >> pure SFImage)
+  <|> (string "SFInt32" >> pure SFInt32)
+  <|> (string "SFNode" >> pure SFNode)
+  <|> (string "SFRotation" >> pure SFRotation)
+  <|> (string "SFString" >> pure SFString)
+  <|> (string "SFTime" >> pure SFTime)
+  <|> (string "SFVec2f" >> pure SFVec2f)
+  <|> (string "SFVec3f" >> pure SFVec3f)
+
+data FieldValue
+  = SfboolValue Bool
+  | SfcolorValue (Float,Float,Float)
+  | SffloatValue Float
+  | SfimageValue [Int32]
+  | Sfint32Value Int32
+  | SfnodeValue (Maybe NodeStatement)
+  | SfrotationValue (Float,Float,Float,Float)
+  | SfstringValue String
+  | SftimeValue Double
+  | Sfvec2fValue (Float,Float)
+  | Sfvec3fValue (Float,Float,Float)
+  | MfcolorValue [(Float,Float,Float)]
+  | MffloatValue [Float]
+  | Mfint32Value [Int32]
+  | MfnodeValue [NodeStatement]
+  | MfrotationValue [(Float,Float,Float,Float)]
+  | MfstringValue [String]
+  | MftimeValue [Double]
+  | Mfvec2fValue [(Float,Float)]
+  | Mfvec3fValue [(Float,Float,Float)]
+  deriving (Show,Eq)
+
+-- | parser of FieldType
+--
+-- >>> parseTest parseFieldValue "TRUE"
+-- SfboolValue True
+-- >>> parseTest parseFieldValue "FALSE"
+-- SfboolValue False
+-- >>> parseTest parseFieldValue "NULL"
+-- SfnodeValue Nothing
+-- >>> parseTest parseFieldValue "\"hoge\\\"hoge\""
+-- SfstringValue "hoge\"hoge"
+-- >>> parseTest parseFieldValue "1.0"
+-- SffloatValue 1.0
+-- >>> parseTest parseFieldValue "0x1"
+-- SffloatValue 1.0
+
+parseFieldValue :: Parser FieldValue
+parseFieldValue
+  =   (string "TRUE" >> pure (SfboolValue True))
+  <|> (string "FALSE" >> pure (SfboolValue False))
+  <|> (string "NULL" >> pure (SfnodeValue Nothing))
+  <|> (stringLiteral >>= \v -> pure (SfstringValue v))
+  <|> (try (pinteger >>= \v -> pure (Sfint32Value (fromIntegral v))))
+  <|> (try (L.scientific >>= \v -> pure (SffloatValue (realToFrac v))))
+  <|> do
+        a <- L.scientific
+        b <- L.scientific
+        c <- L.scientific
+        d <- L.scientific
+        return $ SfrotationValue (realToFrac a,realToFrac b,realToFrac c,realToFrac d)
+  <|> do
+        a <- L.scientific
+        b <- L.scientific
+        c <- L.scientific
+        return $ Sfvec3fValue (realToFrac a,realToFrac b,realToFrac c)
+  <|> do
+        a <- L.scientific
+        b <- L.scientific
+        return $ Sfvec2fValue (realToFrac a,realToFrac b)
+
+pinteger :: Parser Integer
+pinteger =
+  (try L.hexadecimal) <|>
+  (L.decimal) <|>
+  ((string "-") >> (try L.hexadecimal <|> L.decimal) >>= \v -> pure (-v))
+
+-- | parser of FieldType
+--
+-- >>> parseTest stringLiteral "\"hoge\\\"hoge\""
+-- "hoge\"hoge"
+stringLiteral :: Parser String
+stringLiteral = char '\"' *> manyTill charLiteral (char '\"')

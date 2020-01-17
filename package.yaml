@@ -21,6 +21,8 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
+- megaparsec
+- text
 
 library:
   source-dirs: src
@@ -37,8 +39,8 @@ executables:
     - VRML
 
 tests:
-  VRML-test:
-    main:                Spec.hs
+  doctest:
+    main:                doctests.hs
     source-dirs:         test
     ghc-options:
     - -threaded
@@ -46,3 +48,4 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - VRML
+    - doctest
