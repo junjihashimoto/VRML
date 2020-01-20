@@ -30,11 +30,20 @@ lexm = L.lexeme sc
 data VrmlScene = VrmlScene [Statement]
   deriving (Show,Eq)
 
+parseVrmlScene :: Parser VrmlScene
+parseVrmlScene = VrmlScene <$> many parseStatement
+
 data Statement
   = StatementNodeStatement NodeStatement
   | StatementProtoStatement ProtoStatement
   | StatementRouteStatement RouteStatement
   deriving (Show,Eq)
+
+parseStatement :: Parser Statement
+parseStatement = 
+  (StatementNodeStatement  <$> parseNodeStatement) <|>
+  (StatementProtoStatement <$> parseProtoStatement) <|>
+  (StatementRouteStatement <$> parseRouteStatement)
 
 data NodeStatement
   = NodeStatementN Node
@@ -42,14 +51,36 @@ data NodeStatement
   | NodeStatementU NodeNameId
   deriving (Show,Eq)
 
+parseNodeStatement :: Parser NodeStatement
+parseNodeStatement = 
+  (NodeStatementN <$> parseNode) <|>
+  (NodeStatementD <$> (string "DEF" >> parseNodeNameId) <*> parseNode) <|>
+  (NodeStatementU <$> (string "USE" >> parseNodeNameId))
+
 data ProtoStatement
   = Proto NodeTypeId [InterfaceDeclaration] ProtoBody
   | ExternProto NodeTypeId [ExternInterfaceDeclaration] URLList
   deriving (Show,Eq)
 
+parseProtoStatement :: Parser ProtoStatement
+parseProtoStatement = 
+  (Proto
+   <$> (string "PROTO" >> parseNodeTypeId)
+   <*> (string "[" >> many parseInterfaceDeclaration >>= \v -> string "]" >> pure v )
+   <*> (string "{" >> parseProtoBody >>= \v -> string "}" >> pure v)) <|>
+  (ExternProto
+   <$> (string "EXTERNPROTO" >> parseNodeTypeId)
+   <*> (string "[" >> many parseExternInterfaceDeclaration >>= \v -> string "]" >> pure v )
+   <*> parseURLList)
+
 data ProtoBody
-  = ProtoBody [ProtoStatement] (Maybe NodeNameId) Node [Statement]
+  = ProtoBody [ProtoStatement] Node [Statement]
   deriving (Show,Eq)
+
+parseProtoBody :: Parser ProtoBody
+parseProtoBody =
+  ProtoBody <$> (many parseProtoStatement) <*> parseNode <*> many parseStatement
+
 
 data RestrictedInterfaceDeclaration
   = RestrictedInterfaceDeclarationEventIn FieldType EventInId
@@ -57,10 +88,20 @@ data RestrictedInterfaceDeclaration
   | RestrictedInterfaceDeclarationField FieldType FieldId FieldValue
   deriving (Show,Eq)
 
+parseRestrictedInterfaceDeclaration :: Parser RestrictedInterfaceDeclaration
+parseRestrictedInterfaceDeclaration =
+  ( RestrictedInterfaceDeclarationEventIn <$> (string "eventIn" >> parseFieldType) <*> parseEventInId) <|>
+  ( RestrictedInterfaceDeclarationEventOut <$> (string "eventOut" >> parseFieldType) <*> parseEventOutId) <|>
+  ( RestrictedInterfaceDeclarationField <$> (string "field" >> parseFieldType) <*> parseFieldId <*> parseFieldValue)
 data InterfaceDeclaration
   = InterfaceDeclaration RestrictedInterfaceDeclaration
   | InterfaceDeclarationExposedField FieldType FieldId FieldValue
   deriving (Show,Eq)
+
+parseInterfaceDeclaration :: Parser InterfaceDeclaration
+parseInterfaceDeclaration =
+  ( InterfaceDeclaration <$> parseRestrictedInterfaceDeclaration) <|>
+  ( InterfaceDeclarationExposedField <$> (string "exposedField" >> parseFieldType) <*> parseFieldId <*> parseFieldValue)
 
 data ExternInterfaceDeclaration
   = ExternInterfaceDeclarationEventIn FieldType EventInId
@@ -69,17 +110,47 @@ data ExternInterfaceDeclaration
   | ExternInterfaceDeclarationExposedField FieldType FieldId
   deriving (Show,Eq)
 
+parseExternInterfaceDeclaration :: Parser ExternInterfaceDeclaration
+parseExternInterfaceDeclaration =
+  ( ExternInterfaceDeclarationEventIn <$> (string "eventIn" >> parseFieldType) <*> parseEventInId) <|>
+  ( ExternInterfaceDeclarationEventOut <$> (string "eventOut" >> parseFieldType) <*> parseEventOutId) <|>
+  ( ExternInterfaceDeclarationField <$> (string "field" >> parseFieldType) <*> parseFieldId) <|>
+  ( ExternInterfaceDeclarationExposedField <$> (string "exposedField" >> parseFieldType) <*> parseFieldId)
+
 data RouteStatement
   = RouteStatement NodeNameId EventOutId NodeNameId EventInId
   deriving (Show,Eq)
 
-data URLList = URLList String
+parseRouteStatement :: Parser RouteStatement
+parseRouteStatement = 
+  RouteStatement
+  <$> (string "ROUTE" >> parseNodeNameId)
+  <*> (string "." >> parseEventOutId)
+  <*> (string "TO" >> parseNodeNameId)
+  <*> (string "." >> parseEventInId)
+  
+
+data URLList = URLList [String]
   deriving (Show,Eq)
+
+parseURLList :: Parser URLList
+parseURLList =  
+  (stringLiteral >>= \v -> pure (URLList [v])) <|>
+  (string "[" >> many stringLiteral >>= \v -> string "]" >> pure (URLList v))
 
 data Node
   = Node NodeTypeId [NodeBodyElement]
   | Script [ScriptBodyElement]
   deriving (Show,Eq)
+
+parseNode :: Parser Node
+parseNode = do
+  nid <- parseNodeTypeId
+  _ <- string "{"
+  nbody <- many parseNodeBodyElement
+  _ <- string "}"
+  return $ Node nid nbody
+
 
 data ScriptBodyElement
   = ScriptBodyElementN NodeBodyElement
@@ -89,6 +160,14 @@ data ScriptBodyElement
   | ScriptBodyElementF FieldType FieldId FieldId
   deriving (Show,Eq)
 
+parseScriptBodyElement :: Parser ScriptBodyElement  
+parseScriptBodyElement = 
+  (ScriptBodyElementN <$> parseNodeBodyElement) <|>
+  (ScriptBodyElementR <$> parseRestrictedInterfaceDeclaration) <|>
+  (ScriptBodyElementEI <$> (string "eventIn" >> parseFieldType) <*> parseEventInId <*> (string "IS" >> parseEventInId) ) <|>
+  (ScriptBodyElementEO <$> (string "eventOut" >> parseFieldType) <*> parseEventOutId <*> (string "IS" >> parseEventOutId) ) <|>
+  (ScriptBodyElementF <$> (string "field" >> parseFieldType) <*> parseFieldId <*> (string "IS" >> parseFieldId))
+
 data NodeBodyElement
   = NodeBodyElementFV FieldId FieldValue
   | NodeBodyElementFI FieldId FieldId
@@ -97,6 +176,15 @@ data NodeBodyElement
   | NodeBodyElementR RouteStatement
   | NodeBodyElementP ProtoStatement
   deriving (Show,Eq)
+
+parseNodeBodyElement :: Parser NodeBodyElement  
+parseNodeBodyElement = 
+  (NodeBodyElementFV <$> parseFieldId <*> parseFieldValue) <|>
+  (NodeBodyElementFI <$> parseFieldId <*> (string "IS" >> parseFieldId) ) <|>
+  (NodeBodyElementEI <$> parseEventInId <*> (string "IS" >> parseEventInId) ) <|>
+  (NodeBodyElementEO <$> parseEventOutId <*> (string "IS" >> parseEventOutId) ) <|>
+  (NodeBodyElementR <$> parseRouteStatement) <|>
+  (NodeBodyElementP <$> parseProtoStatement)
 
 data NodeNameId = NodeNameId String
   deriving (Show,Eq)
@@ -112,6 +200,43 @@ data EventInId = EventInId String
 
 data EventOutId = EventOutId String
   deriving (Show,Eq)
+
+parseNodeNameId :: Parser NodeNameId
+parseNodeNameId = NodeNameId <$> identifier
+
+parseNodeTypeId :: Parser NodeTypeId
+parseNodeTypeId = NodeTypeId <$> identifier
+
+parseFieldId :: Parser FieldId
+parseFieldId = FieldId <$> identifier
+
+parseEventInId :: Parser EventInId
+parseEventInId = EventInId <$> identifier
+
+parseEventOutId :: Parser EventOutId
+parseEventOutId = EventOutId <$> identifier
+
+
+rws :: [String]
+rws = []
+
+-- | parser of Id
+--
+-- >>> parseTest identifier "hogehoge"
+-- "hogehoge"
+identifier :: Parser String
+identifier = (lexm . try) (p >>= check)
+ where
+  p = (:) <$> (oneOf identStart) <*> many (oneOf identLetter)
+  check x = if x `elem` rws
+    then fail $ "keyword " ++ show x ++ " cannot be an identifier"
+    else return x
+
+identStart :: [Char]
+identStart = ['a'..'z'] ++ ['A'..'Z'] ++ ['_']
+
+identLetter :: [Char]
+identLetter = ['a'..'z'] ++ ['A'..'Z'] ++ ['_'] ++ ['0'..'9'] ++ [':', '<', '>']
 
 data FieldType
   = MFColor
@@ -141,9 +266,13 @@ data FieldType
 -- MFString
 -- >>> parseTest parseFieldType "SFColor"
 -- SFColor
+-- >>> parseTest parseFieldType "MFColor "
+-- MFColor
+-- >>> parseTest parseFieldType " MFColor "
+-- MFColor
 parseFieldType :: Parser FieldType
 parseFieldType
-  =   (string "MFColor" >> pure MFColor)
+  = (string "MFColor" >> pure MFColor)
   <|> (string "MFFloat" >> pure MFFloat)
   <|> (string "MFString" >> pure MFString)
   <|> (string "MFTime" >> pure MFTime)
