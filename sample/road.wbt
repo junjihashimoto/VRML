@@ -1,0 +1,18 @@
+#VRML_SIM R2020a utf8
+DEF SLOPE Road {
+  translation 15.6 5 -85
+  name "road(1)"
+  bottom TRUE
+  wayPoints [
+    0 0 0
+    0 -0.05 3
+    0 -0.5 8
+    0 -4.5 29
+    0 -4.95 35
+    0 -5 41.2
+  ]
+  roadBoundingObject TRUE
+  rightBorderBoundingObject TRUE
+  leftBorderBoundingObject TRUE
+  castShadows TRUE
+}

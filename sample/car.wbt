@@ -1,0 +1,6 @@
+#VRML_SIM R2020a utf8
+DEF WEBOTS_VEHICLE0 BmwX5 {
+  translation -78.7 0.4 7.53
+  rotation 0 1 0 1.5708
+  controller "autonomous_vehicle"
+}

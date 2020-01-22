@@ -5,7 +5,7 @@
 
 module Main where
 
-import Lib
+import Data.VRML
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text (putDoc)
 import System.Environment
@@ -15,6 +15,6 @@ main :: IO ()
 main = do
   args <- getArgs
   f <- readFile (head args)
-  parseTest parseVrmlScene f
+  parseTest parseVRML f
   --putDoc $ pretty $
   --  Node (NodeTypeId "hoge") []

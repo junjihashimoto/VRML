@@ -7,5 +7,5 @@ main = do
   doctest $
     [
       "-XOverloadedStrings",
-      "src/Lib.hs"
+      "src/Data/VRML/Parser.hs"
     ]
