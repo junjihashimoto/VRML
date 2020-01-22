@@ -108,7 +108,8 @@ data EventOutId = EventOutId String
   deriving (Generic,Show,Eq)
 
 data FieldType
-  = MFColor
+  = MFBool
+  | MFColor
   | MFFloat
   | MFString
   | MFTime
@@ -139,6 +140,7 @@ data FieldValue
   | SftimeValue Double
   | Sfvec2fValue (Float,Float)
   | Sfvec3fValue (Float,Float,Float)
+  | MfboolValue [Bool]
   | MfcolorValue [(Float,Float,Float)]
   | MffloatValue [Float]
   | Mfint32Value [Int32]

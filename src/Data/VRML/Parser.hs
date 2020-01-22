@@ -233,7 +233,8 @@ lstring = lexm.string
 -- MFColor
 parseFieldType :: Parser FieldType
 parseFieldType
-  = (lstring "MFColor" >> pure MFColor)
+  = (lstring "MFBool" >> pure MFBool)
+  <|> (lstring "MFColor" >> pure MFColor)
   <|> (lstring "MFFloat" >> pure MFFloat)
   <|> (lstring "MFString" >> pure MFString)
   <|> (lstring "MFTime" >> pure MFTime)
@@ -289,8 +290,7 @@ tupleParser = (,) <$> parseFloat <*> parseFloat
 -- Mfvec3fValue [(10000.0,10000.0,10000.0),(10000.0,10000.0,10000.0)]
 parseFieldValue :: Parser FieldValue
 parseFieldValue
-  =   (lstring "TRUE" >> pure (SfboolValue True))
-  <|> (lstring "FALSE" >> pure (SfboolValue False))
+  =   (SfboolValue <$> parseBool)
   <|> (lstring "NULL" >> pure (SfnodeValue Nothing))
   <|> (try $ MfrotationValue <$> parseArrayN ((,,,)
                                               <$> parseFloat'
@@ -305,6 +305,7 @@ parseFieldValue
                                            <$> parseFloat'
                                            <*> (space'' >> parseFloat')))
   <|> (try $ MffloatValue <$> parseArrayN parseFloat')
+  <|> (try $ MfboolValue <$> parseArray' parseBool)
   <|> (try $ MfnodeValue <$> parseArray' parseNodeStatement)
   <|> (try $ MfstringValue <$> parseArray' stringLiteral)
   <|> (try $ MfrotationValue <$> parseArray ((,,,) <$> parseFloat <*> parseFloat <*> parseFloat <*> parseFloat))
@@ -312,6 +313,7 @@ parseFieldValue
   <|> (try $ Mfvec2fValue <$> parseArray ((,) <$> parseFloat <*> parseFloat))
   <|> (try $ MffloatValue <$> parseArray parseFloat)
   <|> (try $ MfstringValue <$> parseArray stringLiteral)
+  <|> (try $ MfboolValue <$> parseArray parseBool)
   <|> (try $ (\a b c d -> SfrotationValue (a,b,c,d)) <$> parseFloat <*> parseFloat <*> parseFloat <*> parseFloat)
   <|> (try $ (\a b c -> Sfvec3fValue (a,b,c)) <$> parseFloat <*> parseFloat <*> parseFloat)
   <|> (try $ (\a b -> Sfvec2fValue (a,b)) <$> parseFloat <*> parseFloat)
@@ -339,6 +341,11 @@ parseArray' parser = do
   values <-  many parser
   _ <- lstring "]"
   return values
+
+parseBool :: Parser Bool
+parseBool
+  =   (lstring "TRUE" >> pure True)
+  <|> (lstring "FALSE" >> pure False)
 
 pinteger :: Parser Integer
 pinteger =
