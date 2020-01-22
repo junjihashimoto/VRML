@@ -8,9 +8,11 @@ module Lib where
 
 import Data.Int
 import Data.Void
+import Control.Monad (void)
+import Data.Char (isSpace)
 import Data.Text hiding (empty)
 import Text.Megaparsec
-import Text.Megaparsec.Char
+import Text.Megaparsec.Char as C
 import Text.Megaparsec.Char.Lexer as L
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text (putDoc)
@@ -21,10 +23,18 @@ someFunc :: IO ()
 someFunc = putStrLn "someFunc"
 
 sc :: Parser ()
-sc = L.space space1 empty empty
+sc = L.space space1 (L.skipLineComment "#") empty
 
 lexm :: Parser a -> Parser a
 lexm = L.lexeme sc
+
+space' = void $ takeWhileP (Just "white space") (\c -> c == '\t' || c == ' ')
+
+sc' :: Parser ()
+sc' = L.space space' empty empty
+
+lexm' :: Parser a -> Parser a
+lexm' = L.lexeme sc'
 
 data VrmlScene = VrmlScene [Statement]
   deriving (Show,Eq)
@@ -39,54 +49,54 @@ parseVrmlScene = VrmlScene <$> many parseStatement
 data Statement
   = StatementNodeStatement NodeStatement
   | StatementProtoStatement ProtoStatement
-  | StatementRouteStatement RouteStatement
+  | StatementRoute Route
   deriving (Show,Eq)
 
 parseStatement :: Parser Statement
 parseStatement = 
+  (StatementRoute <$> parseRoute) <|>
   (StatementNodeStatement  <$> parseNodeStatement) <|>
-  (StatementProtoStatement <$> parseProtoStatement) <|>
-  (StatementRouteStatement <$> parseRouteStatement)
+  (StatementProtoStatement <$> parseProtoStatement)
 
 data NodeStatement
-  = NodeStatementN Node
-  | NodeStatementD NodeNameId Node
-  | NodeStatementU NodeNameId
+  = NodeStatement Node
+  | DEF NodeNameId Node
+  | USE NodeNameId
   deriving (Show,Eq)
 
 -- | parser of Node
 --
 -- >>> parseTest parseNodeStatement "hoge {}"
--- NodeStatementN (Node (NodeTypeId "hoge") [])
+-- NodeStatement (Node (NodeTypeId "hoge") [])
 -- >>> parseTest parseNodeStatement "DEF hoge1 hoge {}"
--- NodeStatementD (NodeNameId "hoge1") (Node (NodeTypeId "hoge") [])
+-- DEF (NodeNameId "hoge1") (Node (NodeTypeId "hoge") [])
 -- >>> parseTest parseNodeStatement "USE hoge1"
--- NodeStatementU (NodeNameId "hoge1")
+-- USE (NodeNameId "hoge1")
 parseNodeStatement :: Parser NodeStatement
 parseNodeStatement = 
-  (NodeStatementD <$> (lstring "DEF" >> parseNodeNameId) <*> parseNode) <|>
-  (NodeStatementU <$> (lstring "USE" >> parseNodeNameId)) <|>
-  (NodeStatementN <$> parseNode)
+  (DEF <$> (lstring "DEF" >> parseNodeNameId) <*> parseNode) <|>
+  (USE <$> (lstring "USE" >> parseNodeNameId)) <|>
+  (NodeStatement <$> parseNode)
 
 data ProtoStatement
   = Proto NodeTypeId [InterfaceDeclaration] ProtoBody
   | ExternProto NodeTypeId [ExternInterfaceDeclaration] URLList
   deriving (Show,Eq)
 
--- | parser of Node
+-- | parser of Proto
 --
--- >>> parseTest parseProtoStatement "PROTO hoge [] {}"
--- Proto (NodeTypeId "hoge") [])
+-- >>> parseTest parseProtoStatement "PROTO Cube [] { Box {} }"
+-- Proto (NodeTypeId "Cube") [] (ProtoBody [] (Node (NodeTypeId "Box") []) [])
 parseProtoStatement :: Parser ProtoStatement
 parseProtoStatement = 
-  (Proto
+  (id (Proto
    <$> (lstring "PROTO" >> parseNodeTypeId)
    <*> (lstring "[" >> many parseInterfaceDeclaration >>= \v -> lstring "]" >> pure v )
-   <*> (lstring "{" >> parseProtoBody >>= \v -> lstring "}" >> pure v)) <|>
-  (ExternProto
-   <$> (string "EXTERNPROTO" >> parseNodeTypeId)
-   <*> (string "[" >> many parseExternInterfaceDeclaration >>= \v -> string "]" >> pure v )
-   <*> parseURLList)
+   <*> (lstring "{" >> parseProtoBody >>= \v -> lstring "}" >> pure v))) <|>
+  (id (ExternProto
+   <$> (lstring "EXTERNPROTO" >> parseNodeTypeId)
+   <*> (lstring "[" >> many parseExternInterfaceDeclaration >>= \v -> lstring "]" >> pure v )
+   <*> parseURLList))
 
 data ProtoBody
   = ProtoBody [ProtoStatement] Node [Statement]
@@ -97,7 +107,7 @@ data ProtoBody
 -- >>> parseTest parseProtoBody "hoge {}"
 -- ProtoBody [] (Node (NodeTypeId "hoge") []) []
 parseProtoBody :: Parser ProtoBody
-parseProtoBody =
+parseProtoBody = do
   ProtoBody <$> many parseProtoStatement <*> parseNode <*> many parseStatement
 
 
@@ -109,9 +119,9 @@ data RestrictedInterfaceDeclaration
 
 parseRestrictedInterfaceDeclaration :: Parser RestrictedInterfaceDeclaration
 parseRestrictedInterfaceDeclaration =
-  ( RestrictedInterfaceDeclarationEventIn <$> (string "eventIn" >> parseFieldType) <*> parseEventInId) <|>
-  ( RestrictedInterfaceDeclarationEventOut <$> (string "eventOut" >> parseFieldType) <*> parseEventOutId) <|>
-  ( RestrictedInterfaceDeclarationField <$> (string "field" >> parseFieldType) <*> parseFieldId <*> parseFieldValue)
+  ( RestrictedInterfaceDeclarationEventIn <$> (lstring "eventIn" >> parseFieldType) <*> parseEventInId) <|>
+  ( RestrictedInterfaceDeclarationEventOut <$> (lstring "eventOut" >> parseFieldType) <*> parseEventOutId) <|>
+  ( RestrictedInterfaceDeclarationField <$> (lstring "field" >> parseFieldType) <*> parseFieldId <*> parseFieldValue)
 data InterfaceDeclaration
   = InterfaceDeclaration RestrictedInterfaceDeclaration
   | InterfaceDeclarationExposedField FieldType FieldId FieldValue
@@ -119,8 +129,8 @@ data InterfaceDeclaration
 
 parseInterfaceDeclaration :: Parser InterfaceDeclaration
 parseInterfaceDeclaration =
-  ( InterfaceDeclaration <$> parseRestrictedInterfaceDeclaration) <|>
-  ( InterfaceDeclarationExposedField <$> (string "exposedField" >> parseFieldType) <*> parseFieldId <*> parseFieldValue)
+  ( InterfaceDeclarationExposedField <$> (lstring "exposedField" >> parseFieldType) <*> parseFieldId <*> parseFieldValue) <|>
+  ( InterfaceDeclaration <$> parseRestrictedInterfaceDeclaration)
 
 data ExternInterfaceDeclaration
   = ExternInterfaceDeclarationEventIn FieldType EventInId
@@ -131,22 +141,26 @@ data ExternInterfaceDeclaration
 
 parseExternInterfaceDeclaration :: Parser ExternInterfaceDeclaration
 parseExternInterfaceDeclaration =
-  ( ExternInterfaceDeclarationEventIn <$> (string "eventIn" >> parseFieldType) <*> parseEventInId) <|>
-  ( ExternInterfaceDeclarationEventOut <$> (string "eventOut" >> parseFieldType) <*> parseEventOutId) <|>
-  ( ExternInterfaceDeclarationField <$> (string "field" >> parseFieldType) <*> parseFieldId) <|>
-  ( ExternInterfaceDeclarationExposedField <$> (string "exposedField" >> parseFieldType) <*> parseFieldId)
+  ( ExternInterfaceDeclarationEventIn <$> (lstring "eventIn" >> parseFieldType) <*> parseEventInId) <|>
+  ( ExternInterfaceDeclarationEventOut <$> (lstring "eventOut" >> parseFieldType) <*> parseEventOutId) <|>
+  ( ExternInterfaceDeclarationField <$> (lstring "field" >> parseFieldType) <*> parseFieldId) <|>
+  ( ExternInterfaceDeclarationExposedField <$> (lstring "exposedField" >> parseFieldType) <*> parseFieldId)
 
-data RouteStatement
-  = RouteStatement NodeNameId EventOutId NodeNameId EventInId
+data Route
+  = Route NodeNameId EventOutId NodeNameId EventInId
   deriving (Show,Eq)
 
-parseRouteStatement :: Parser RouteStatement
-parseRouteStatement = 
-  RouteStatement
-  <$> (string "ROUTE" >> parseNodeNameId)
-  <*> (string "." >> parseEventOutId)
-  <*> (string "TO" >> parseNodeNameId)
-  <*> (string "." >> parseEventInId)
+-- | parser of Route
+--
+-- >>> parseTest parseRoute "ROUTE hoge.hoge TO hoge.hoge"
+-- Route (NodeNameId "hoge") (EventOutId "hoge") (NodeNameId "hoge") (EventInId "hoge")
+parseRoute :: Parser Route
+parseRoute = 
+  Route
+  <$> (lstring "ROUTE" >> parseNodeNameId)
+  <*> (lstring "." >> parseEventOutId)
+  <*> (lstring "TO" >> parseNodeNameId)
+  <*> (lstring "." >> parseEventInId)
 
 data URLList = URLList [String]
   deriving (Show,Eq)
@@ -154,7 +168,7 @@ data URLList = URLList [String]
 parseURLList :: Parser URLList
 parseURLList =  
   (stringLiteral >>= \v -> pure (URLList [v])) <|>
-  (string "[" >> many stringLiteral >>= \v -> string "]" >> pure (URLList v))
+  (lstring "[" >> many stringLiteral >>= \v -> lstring "]" >> pure (URLList v))
 
 data Node
   = Node NodeTypeId [NodeBodyElement]
@@ -163,8 +177,16 @@ data Node
 
 -- | parser of Node
 --
--- >>> parseTest parseNode "hoge {}"
--- Node (NodeTypeId "hoge") []
+-- >>> parseTest parseNode "hoge {hoge 1 hoge 2}"
+-- Node (NodeTypeId "hoge") [NodeBodyElementFV (FieldId "hoge") (SffloatValue 1.0),NodeBodyElementFV (FieldId "hoge") (SffloatValue 2.0)]
+-- >>> parseTest parseNode "BmwX5 { translation -78.7 0.4 7.53 }"
+-- Node (NodeTypeId "BmwX5") [NodeBodyElementFV (FieldId "translation") (Sfvec3fValue (-78.7,0.4,7.53))]
+-- >>> parseTest parseNode "BmwX5 { rotation 0 1 0 1.5708}"
+-- Node (NodeTypeId "BmwX5") [NodeBodyElementFV (FieldId "rotation") (SfrotationValue (0.0,1.0,0.0,1.5708))]
+-- >>> parseTest parseNode "BmwX5 { controller \"autonomous_vehicle\" }"
+-- Node (NodeTypeId "BmwX5") [NodeBodyElementFV (FieldId "controller") (SfstringValue "autonomous_vehicle")]
+-- >>> parseTest parseNode "BmwX5 { translation -78.7 0.4 7.53  rotation 0 1 0 1.5708 controller \"autonomous_vehicle\" }"
+-- Node (NodeTypeId "BmwX5") [NodeBodyElementFV (FieldId "translation") (Sfvec3fValue (-78.7,0.4,7.53)),NodeBodyElementFV (FieldId "rotation") (SfrotationValue (0.0,1.0,0.0,1.5708)),NodeBodyElementFV (FieldId "controller") (SfstringValue "autonomous_vehicle")]
 -- >>> parseTest parseNode "Script {}"
 -- Script []
 -- >>> parseTest parseNode "Script {  }"
@@ -200,31 +222,33 @@ data ScriptBodyElement
 
 parseScriptBodyElement :: Parser ScriptBodyElement  
 parseScriptBodyElement = 
-  (ScriptBodyElementN <$> parseNodeBodyElement) <|>
+  (ScriptBodyElementEI <$> (lstring "eventIn" >> parseFieldType) <*> parseEventInId <*> (lstring "IS" >> parseEventInId) ) <|>
+  (ScriptBodyElementEO <$> (lstring "eventOut" >> parseFieldType) <*> parseEventOutId <*> (lstring "IS" >> parseEventOutId) ) <|>
+  (ScriptBodyElementF <$> (lstring "field" >> parseFieldType) <*> parseFieldId <*> (lstring "IS" >> parseFieldId)) <|>
   (ScriptBodyElementR <$> parseRestrictedInterfaceDeclaration) <|>
-  (ScriptBodyElementEI <$> (string "eventIn" >> parseFieldType) <*> parseEventInId <*> (string "IS" >> parseEventInId) ) <|>
-  (ScriptBodyElementEO <$> (string "eventOut" >> parseFieldType) <*> parseEventOutId <*> (string "IS" >> parseEventOutId) ) <|>
-  (ScriptBodyElementF <$> (string "field" >> parseFieldType) <*> parseFieldId <*> (string "IS" >> parseFieldId))
+  (ScriptBodyElementN <$> parseNodeBodyElement)
 
 data NodeBodyElement
   = NodeBodyElementFV FieldId FieldValue
   | NodeBodyElementFI FieldId FieldId
   | NodeBodyElementEI EventInId EventInId
   | NodeBodyElementEO EventOutId EventOutId
-  | NodeBodyElementR RouteStatement
+  | NodeBodyElementR Route
   | NodeBodyElementP ProtoStatement
   deriving (Show,Eq)
 
 -- >>> parseTest parseBodyElement "maxPosition 1e4 1e4"
 -- NodeBodyElementFV (FieldId "maxPosition") (Sfvec2fValue (1e4,1e4))
+-- >>> parseTest parseBodyElement "width IS width"
+-- NodeBodyElementFI (FieldId "width") (FieldId "width")
 parseNodeBodyElement :: Parser NodeBodyElement  
 parseNodeBodyElement = 
-  (NodeBodyElementFV <$> parseFieldId <*> parseFieldValue) <|>
-  (NodeBodyElementFI <$> parseFieldId <*> (string "IS" >> parseFieldId) ) <|>
-  (NodeBodyElementEI <$> parseEventInId <*> (string "IS" >> parseEventInId) ) <|>
-  (NodeBodyElementEO <$> parseEventOutId <*> (string "IS" >> parseEventOutId) ) <|>
-  (NodeBodyElementR <$> parseRouteStatement) <|>
-  (NodeBodyElementP <$> parseProtoStatement)
+  (NodeBodyElementR <$> parseRoute) <|>
+  (NodeBodyElementP <$> parseProtoStatement) <|>
+  (try $ (NodeBodyElementFI <$> parseFieldId <*> (lstring "IS" >> parseFieldId) )) <|>
+  (try $ (NodeBodyElementEI <$> parseEventInId <*> (lstring "IS" >> parseEventInId) )) <|>
+  (try $ (NodeBodyElementEO <$> parseEventOutId <*> (lstring "IS" >> parseEventOutId) )) <|>
+  (NodeBodyElementFV <$> parseFieldId <*> parseFieldValue)
 
 data NodeNameId = NodeNameId String
   deriving (Show,Eq)
@@ -354,7 +378,10 @@ data FieldValue
   deriving (Show,Eq)
 
 parseFloat :: Parser Float
-parseFloat = lexm L.scientific >>= pure.realToFrac
+parseFloat =realToFrac <$> lexm pfloat
+
+parseFloat' :: Parser Float
+parseFloat' =realToFrac <$> lexm' pfloat
 
 parseInt :: Parser Int32
 parseInt = fromIntegral <$> lexm pinteger
@@ -376,42 +403,52 @@ tupleParser = (,) <$> parseFloat <*> parseFloat
 -- SfnodeValue Nothing
 -- >>> parseTest parseFieldValue "\"hoge\\\"hoge\""
 -- SfstringValue "hoge\"hoge"
+-- >>> parseTest parseFieldValue "\"autonomous_vehicle\""
+-- SfstringValue "autonomous_vehicle"
 -- >>> parseTest parseFieldValue "1e4 1e4"
 -- Sfvec2fValue (10000.0,10000.0)
 -- >>> parseTest parseFieldValue "[1e4 1e4 1e4,1e4 1e4 1e4]"
 -- Mfvec3fValue [(10000.0,10000.0,10000.0),(10000.0,10000.0,10000.0)]
+-- >>> parseTest ((,) <$> parseFloat' <*> (eol >> parseFloat)) "1e4\n1e4"
+-- (10000.0,10000.0)
 parseFieldValue :: Parser FieldValue
 parseFieldValue
-  =   (string "TRUE" >> pure (SfboolValue True))
-  <|> (string "FALSE" >> pure (SfboolValue False))
-  <|> (string "NULL" >> pure (SfnodeValue Nothing))
+  =   (lstring "TRUE" >> pure (SfboolValue True))
+  <|> (lstring "FALSE" >> pure (SfboolValue False))
+  <|> (lstring "NULL" >> pure (SfnodeValue Nothing))
+  <|> (try $ MfrotationValue <$> parseArray ((,,,) <$> parseFloat <*> parseFloat <*> parseFloat <*> parseFloat))
+--  <|> (try $ Mfvec3fValue <$> parseArrayN ((,,) <$> parseFloat' <*> parseFloat' <*> parseFloat'))
+  <|> (try $ Mfvec3fValue <$> parseArray ((,,) <$> parseFloat <*> parseFloat <*> parseFloat))
+  <|> (try $ Mfvec2fValue <$> parseArray ((,) <$> parseFloat <*> parseFloat))
+  <|> (try $ MffloatValue <$> parseArray parseFloat)
+  <|> (try $ MfnodeValue <$> parseArray' parseNodeStatement)
   <|> (try $ (\a b c d -> SfrotationValue (a,b,c,d)) <$> parseFloat <*> parseFloat <*> parseFloat <*> parseFloat)
   <|> (try $ (\a b c -> Sfvec3fValue (a,b,c)) <$> parseFloat <*> parseFloat <*> parseFloat)
   <|> (try $ (\a b -> Sfvec2fValue (a,b)) <$> parseFloat <*> parseFloat)
   <|> (try $ (SffloatValue <$> parseFloat))
   <|> (try $ (stringLiteral >>= \v -> pure (SfstringValue v)))
-  <|> (try $ do
-          _ <- lstring "["
-          values <- sepBy
-                    ((\a b c -> (a,b,c)) <$> parseFloat <*> parseFloat <*> parseFloat)
-                    (lstring ",")
-          _ <- lstring "]"
-          return $ Mfvec3fValue values
-      )
-  <|> (try $ do
-          _ <- lstring "["
-          values <- sepBy
-                    ((\a b -> (a,b)) <$> parseFloat <*> parseFloat)
-                    (lstring ",")
-          _ <- lstring "]"
-          return $ Mfvec2fValue values
-      )
-  <|> (try $ do
-          _ <- lstring "["
-          values <- sepBy parseFloat (lstring ",")
-          _ <- lstring "]"
-          return $ MffloatValue values
-      )
+  <|> (try $ ((SfnodeValue . Just) <$> parseNodeStatement))
+
+parseArray :: Parser a -> Parser [a]
+parseArray parser = do
+  _ <- lstring "["
+  values <-  parser `sepBy` lstring ","
+  _ <- lstring "]"
+  return values
+
+parseArrayN :: Parser a -> Parser [a]
+parseArrayN parser = do
+  _ <- lstring "["
+  values <-  parser `sepBy` eol
+  _ <- lstring "]"
+  return values
+
+parseArray' :: Parser a -> Parser [a]
+parseArray' parser = do
+  _ <- lstring "["
+  values <-  many parser
+  _ <- lstring "]"
+  return values
 
 pinteger :: Parser Integer
 pinteger =
@@ -419,9 +456,16 @@ pinteger =
   (L.decimal) <|>
   ((string "-") >> (try L.hexadecimal <|> L.decimal) >>= \v -> pure (-v))
 
+pfloat :: Parser Float
+pfloat =
+  (realToFrac <$> L.scientific) <|>
+  ((string "-") >> L.scientific >>= \v -> realToFrac <$> (pure (-v)))
+
 -- | parser of FieldType
 --
 -- >>> parseTest stringLiteral "\"hoge\\\"hoge\""
 -- "hoge\"hoge"
+-- >>> parseTest stringLiteral "\"autonomous_vehicle\""
+-- "autonomous_vehicle"
 stringLiteral :: Parser String
-stringLiteral = char '\"' *> manyTill charLiteral (char '\"')
+stringLiteral = lexm $ char '\"' *> manyTill charLiteral (char '\"')
