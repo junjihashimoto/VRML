@@ -1,0 +1,18 @@
+name: stack-linux
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: Setup packages
+      run: |
+        (wget -qO- https://get.haskellstack.org/ | sh) || true
+    - name: Build
+      run: |
+        stack build
+    - name: Test
+      run: |
+        stack test
