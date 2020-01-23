@@ -18,9 +18,11 @@ import Text.Megaparsec.Char.Lexer as L
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text (putDoc)
 
+indent' = indent 2
+
 instance Pretty VRML where
   pretty (VRML version statements) =
-    header  <> vsep (map pretty statements)
+    header  <> vsep (map pretty statements)  <> line
     where
       header = "#" <> pretty version <> line
 
@@ -31,30 +33,34 @@ instance Pretty Statement where
 
 instance Pretty NodeStatement where
   pretty (DEF nodeNameId node) = "DEF" <+> pretty nodeNameId <+> pretty node
-  pretty (USE nodeNameId) = "USE" <+> pretty nodeNameId <> line
+  pretty (USE nodeNameId) = "USE" <+> pretty nodeNameId
   pretty (NodeStatement node) = pretty node
 
 instance Pretty ProtoStatement where
   pretty (Proto nodeTypeId interfaces protoBody) =
-    "PROTO" <+> pretty nodeTypeId <> line <>
-    "[" <> line <>
-    nest 4 (vsep (map pretty interfaces)) <>
-    "]" <> line <>
-    "{" <> line <>
-    nest 4 (pretty protoBody) <>
-    "}" <> line  
+    vsep
+    [ "PROTO" <+> pretty nodeTypeId <+> "["
+    ,  indent' (vsep (map pretty interfaces))
+    , "]"
+    , "{"
+    , indent' (pretty protoBody)
+    , "}"
+    ]
   pretty (ExternProto nodeTypeId interfaces urllist) =
-    "EXTERNPROTO" <+> pretty nodeTypeId <> line <>
-    "[" <> line <>
-    nest 4 (vsep (map pretty interfaces)) <>
-    "]" <> line <>
-    pretty urllist
+    vsep
+    [ "EXTERNPROTO" <+> pretty nodeTypeId <+> "["
+    ,  indent' (vsep (map pretty interfaces))
+    , "]"
+    , pretty urllist
+    ]
 
 instance Pretty ProtoBody where
   pretty (ProtoBody ps node st) =
-    vsep (map (\v -> pretty v <> line ) ps) <>
-    pretty node <>
-    vsep (map (\v -> pretty v <> line ) st)
+    vsep (
+      (map (\v -> pretty v <> line ) ps) ++ 
+      [pretty node] ++
+      (map (\v -> pretty v <> line ) st)
+      )
 
 instance Pretty RestrictedInterface where
   pretty (RestrictedInterfaceEventIn ft ei) =
@@ -85,19 +91,25 @@ instance Pretty Route where
 
 instance Pretty URLList where
   pretty (URLList urls) =
-    "[" <> line <> 
-    nest 4 (vsep $ map (\url -> pretty (SfstringValue url) <> line) urls) <>
-    "]" <> line
+    vsep
+    [ "["
+    , indent' (vsep (map (\url -> pretty (SfstringValue url) <> line) urls))
+    , "]"
+    ]
 
 instance Pretty Node where
   pretty (Node ntypeid bodys) =
-    pretty ntypeid <+> "{" <> line <>
-    nest 4 (vsep $ map (\v -> pretty v <> line) bodys) <>
-    "}" <> line
+    vsep
+    [ pretty ntypeid <+> "{"
+    , indent' (vsep (map (\v -> pretty v) bodys))
+    , "}"
+    ]
   pretty (Script bodys) =
-    "Script" <+> "{" <> line <>
-    nest 4 (vsep $ map (\v -> pretty v <> line) bodys) <>
-    "}" <> line
+    vsep
+    [ "Script" <+> "{"
+    , indent' (vsep (map (\v -> pretty v) bodys))
+    , "}"
+    ]
 
 instance Pretty ScriptBodyElement where
   pretty (SBNode v) = pretty v
@@ -169,43 +181,63 @@ instance Pretty FieldValue where
   pretty (Sfvec2fValue (v1,v2)) = pretty v1 <+> pretty v2
   pretty (Sfvec3fValue (v1,v2,v3)) = pretty v1 <+> pretty v2 <+> pretty v3
   pretty (MfboolValue vs) =
-    "[" <> line <>
-    nest 4 (vsep $ map (\v -> pretty (SfboolValue v) <> line) vs)
-    <> "]"
+    vsep
+    [ "["
+    , indent' (vsep (map (\v -> pretty (SfboolValue v)) vs))
+    , "]"
+    ]
   pretty (MfcolorValue vs) =
-    "[" <> line <>
-    nest 4 (vsep $ map (\v -> pretty (SfcolorValue v) <> line) vs)
-    <> "]"
+    vsep
+    [ "["
+    , indent' (vsep (map (\v -> pretty (SfcolorValue v)) vs))
+    , "]"
+    ]
   pretty (MffloatValue vs) =
-    "[" <> line <>
-    nest 4 (vsep $ map (\v -> pretty (SffloatValue v) <> line) vs)
-    <> "]"
+    vsep
+    [ "["
+    , indent' (vsep (map (\v -> pretty (SffloatValue v)) vs))
+    , "]"
+    ]
   pretty (Mfint32Value vs) =
-    "[" <> line <>
-    nest 4 (vsep $ map (\v -> pretty (Sfint32Value v) <> line) vs)
-    <> "]"
+    vsep
+    [ "["
+    , indent' (vsep (map (\v -> pretty (Sfint32Value v)) vs))
+    , "]"
+    ]
   pretty (MfnodeValue vs) =
-    "[" <> line <>
-    nest 4 (vsep $ map (\v -> pretty (SfnodeValue (Just v)) <> line) vs)
-    <> "]"
+    vsep
+    [ "["
+    , indent' (vsep (map (\v -> pretty (SfnodeValue (Just v))) vs))
+    , "]"
+    ]
   pretty (MfrotationValue vs) =
-    "[" <> line <>
-    nest 4 (vsep $ map (\v -> pretty (SfrotationValue v) <> line) vs)
-    <> "]"
+    vsep
+    [ "["
+    , indent' (vsep (map (\v -> pretty (SfrotationValue v)) vs))
+    , "]"
+    ]
   pretty (MfstringValue vs) =
-    "[" <> line <>
-    nest 4 (vsep $ map (\v -> pretty (SfstringValue v) <> line) vs)
-    <> "]"
+    vsep
+    [ "["
+    , indent' (vsep (map (\v -> pretty (SfstringValue v)) vs))
+    , "]"
+    ]
   pretty (MftimeValue vs) =
-    "[" <> line <>
-    nest 4 (vsep $ map (\v -> pretty (SftimeValue v) <> line) vs)
-    <> "]"
+    vsep
+    [ "["
+    , indent' (vsep (map (\v -> pretty (SftimeValue v)) vs))
+    , "]"
+    ]
   pretty (Mfvec2fValue vs) =
-    "[" <> line <>
-    nest 4 (vsep $ map (\v -> pretty (Sfvec2fValue v) <> line) vs)
-    <> "]"
+    vsep
+    [ "["
+    , indent' (vsep (map (\v -> pretty (Sfvec2fValue v)) vs))
+    , "]"
+    ]
   pretty (Mfvec3fValue vs) =
-    "[" <> line <>
-    nest 4 (vsep $ map (\v -> pretty (Sfvec3fValue v) <> line) vs)
-    <> "]"
+    vsep
+    [ "["
+    , indent' (vsep (map (\v -> pretty (Sfvec3fValue v)) vs))
+    , "]"
+    ]
 
