@@ -10,11 +10,13 @@ import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text (putDoc)
 import System.Environment
 import Text.Megaparsec
-
+import Control.Monad (void)
 main :: IO ()
 main = do
   args <- getArgs
   f <- readFile (head args)
-  parseTest parseVRML f
+  case parse parseVRML "" f of
+    Right v -> putDoc $ pretty v
+    Left _ -> void $ parseTest parseVRML f
   --putDoc $ pretty $
   --  Node (NodeTypeId "hoge") []

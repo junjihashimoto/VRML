@@ -156,12 +156,6 @@ parseNode = do
       _ <- lstring "}"
       return $ Node nid nbody
 
-instance Pretty Node where
-  pretty (Node (NodeTypeId nid) nbody) =
-    pretty nid <> "{" <> line
---    <+> pretty nbody
-    <> "}" <> line
-
 parseScriptBodyElement :: Parser ScriptBodyElement  
 parseScriptBodyElement = 
   (SBEventIn <$> (lstring "eventIn" >> parseFieldType) <*> parseEventInId <*> (lstring "IS" >> parseEventInId) ) <|>

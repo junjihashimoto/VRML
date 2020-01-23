@@ -5,18 +5,8 @@
 
 module Data.VRML.Types where
 
-
 import GHC.Generics
 import Data.Int
-import Data.Void
-import Control.Monad (void)
-import Data.Char (isSpace)
-import Data.Text hiding (empty)
-import Text.Megaparsec
-import Text.Megaparsec.Char as C
-import Text.Megaparsec.Char.Lexer as L
-import Data.Text.Prettyprint.Doc
-import Data.Text.Prettyprint.Doc.Render.Text (putDoc)
 
 data VRML = VRML
   { version :: String
