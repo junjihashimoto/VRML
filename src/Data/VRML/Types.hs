@@ -7,6 +7,7 @@ module Data.VRML.Types where
 
 import GHC.Generics
 import Data.Int
+import Data.String
 
 data VRML = VRML
   { version :: String
@@ -18,7 +19,28 @@ data Statement
   = StNode NodeStatement
   | StProto ProtoStatement
   | StRoute Route
-  deriving (Generic,Show,Eq)
+  deriving (Generic,Eq)
+
+class NodeLike a where
+  node :: NodeTypeId -> [NodeBodyElement] -> a
+
+instance NodeLike Statement where
+  node i b = StNode (NodeStatement (Node i b))
+
+instance NodeLike NodeStatement where
+  node i b = NodeStatement (Node i b)
+
+instance NodeLike Node where
+  node i b = Node i b
+
+instance NodeLike FieldValue where
+  node i b = Snode (Just (NodeStatement (Node i b)))
+
+instance Show Statement where
+  show (StNode (NodeStatement (Node i b))) = "node " ++ show i ++ " " ++ show b
+  show (StNode s) = "StNode (" ++ show s ++ ")"
+  show (StProto s) = "StProto (" ++ show s
+  show (StRoute s) = "StRoute (" ++ show s ++ ")"
 
 data NodeStatement
   = NodeStatement Node
@@ -27,12 +49,8 @@ data NodeStatement
   deriving (Generic,Show,Eq)
 
 data ProtoStatement
-  = Proto NodeTypeId [Interface] ProtoBody
+  = Proto NodeTypeId [Interface] [ProtoStatement] Node [Statement]
   | ExternProto NodeTypeId [ExternInterface] URLList
-  deriving (Generic,Show,Eq)
-
-data ProtoBody
-  = ProtoBody [ProtoStatement] Node [Statement]
   deriving (Generic,Show,Eq)
 
 data RestrictedInterface
@@ -42,7 +60,9 @@ data RestrictedInterface
   deriving (Generic,Show,Eq)
 
 data Interface
-  = Interface RestrictedInterface
+  = InterfaceEventIn FieldType EventInId
+  | InterfaceEventOut FieldType EventOutId
+  | InterfaceField FieldType FieldId FieldValue
   | InterfaceExposedField FieldType FieldId FieldValue
   deriving (Generic,Show,Eq)
 
@@ -57,7 +77,7 @@ data Route
   = Route NodeNameId EventOutId NodeNameId EventInId
   deriving (Generic,Show,Eq)
 
-data URLList = URLList [String]
+newtype URLList = URLList [String]
   deriving (Generic,Show,Eq)
 
 data Node
@@ -74,27 +94,27 @@ data ScriptBodyElement
   deriving (Generic,Show,Eq)
 
 data NodeBodyElement
-  = NBFieldValue FieldId FieldValue
+  = FV FieldId FieldValue
   | NBFieldId FieldId FieldId
-  | NBEeventIn EventInId EventInId
-  | NBEeventOut EventOutId EventOutId
+  | NBEventIn EventInId EventInId
+  | NBEventOut EventOutId EventOutId
   | NBRoute Route
   | NBProto ProtoStatement
   deriving (Generic,Show,Eq)
 
-data NodeNameId = NodeNameId String
+newtype NodeNameId = NodeNameId String
   deriving (Generic,Show,Eq)
 
-data NodeTypeId = NodeTypeId String
+newtype NodeTypeId = NodeTypeId String
+  deriving (Generic,Eq)
+
+newtype FieldId = FieldId String
+  deriving (Generic,Eq)
+
+newtype EventInId = EventInId String
   deriving (Generic,Show,Eq)
 
-data FieldId = FieldId String
-  deriving (Generic,Show,Eq)
-
-data EventInId = EventInId String
-  deriving (Generic,Show,Eq)
-
-data EventOutId = EventOutId String
+newtype EventOutId = EventOutId String
   deriving (Generic,Show,Eq)
 
 data FieldType
@@ -119,25 +139,50 @@ data FieldType
   deriving (Generic,Show,Eq)
 
 data FieldValue
-  = SfboolValue Bool
-  | SfcolorValue (Float,Float,Float)
-  | SffloatValue Float
-  | SfimageValue [Int32]
-  | Sfint32Value Int32
-  | SfnodeValue (Maybe NodeStatement)
-  | SfrotationValue (Float,Float,Float,Float)
-  | SfstringValue String
-  | SftimeValue Double
-  | Sfvec2fValue (Float,Float)
-  | Sfvec3fValue (Float,Float,Float)
-  | MfboolValue [Bool]
-  | MfcolorValue [(Float,Float,Float)]
-  | MffloatValue [Float]
-  | Mfint32Value [Int32]
-  | MfnodeValue [NodeStatement]
-  | MfrotationValue [(Float,Float,Float,Float)]
-  | MfstringValue [String]
-  | MftimeValue [Double]
-  | Mfvec2fValue [(Float,Float)]
-  | Mfvec3fValue [(Float,Float,Float)]
+  = Sbool Bool
+  | Scolor (Float,Float,Float)
+  | Sfloat Float
+  | Simage [Int32]
+  | Sint32 Int32
+  | Snode (Maybe NodeStatement)
+  | Srotation (Float,Float,Float,Float)
+  | Sstring String
+  | Stime Double
+  | Svec2f (Float,Float)
+  | Svec3f (Float,Float,Float)
+  | Mbool [Bool]
+  | Mcolor [(Float,Float,Float)]
+  | Mfloat [Float]
+  | Mint32 [Int32]
+  | Mnode [NodeStatement]
+  | Mrotation [(Float,Float,Float,Float)]
+  | Mstring [String]
+  | Mtime [Double]
+  | Mvec2f [(Float,Float)]
+  | Mvec3f [(Float,Float,Float)]
   deriving (Generic,Show,Eq)
+
+instance IsString FieldValue where
+  fromString s = Sstring s
+
+instance IsString NodeNameId where
+  fromString s = NodeNameId s
+
+instance IsString NodeTypeId where
+  fromString s = NodeTypeId s
+
+instance IsString FieldId where
+  fromString s = FieldId s
+
+instance IsString EventInId where
+  fromString s = EventInId s
+
+instance IsString EventOutId where
+  fromString s = EventOutId s
+
+instance Show NodeTypeId where
+  show (NodeTypeId s) = show s
+
+instance Show FieldId where
+  show (FieldId s) = show s
+

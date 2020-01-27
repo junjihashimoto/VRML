@@ -24,6 +24,7 @@ dependencies:
 - megaparsec
 - text
 - prettyprinter
+- show-prettyprint
 - aeson
 
 library:
