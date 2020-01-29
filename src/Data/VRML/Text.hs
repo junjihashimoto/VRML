@@ -167,7 +167,7 @@ instance Pretty FieldType where
 instance Pretty FieldValue where
   pretty (Sbool True) = "TRUE"
   pretty (Sbool False) = "FALSE"
-  pretty (Scolor (v1,v2,v3)) = pretty v1 <+> pretty v2 <+> pretty v3
+  pretty (Scolor (Color (v1,v2,v3))) = pretty v1 <+> pretty v2 <+> pretty v3
   pretty (Sfloat v) = pretty v
   pretty (Simage v) = foldl (<+>) "[" (map pretty v) <+> "]"
   pretty (Sint32 v) = pretty v
@@ -180,7 +180,7 @@ instance Pretty FieldValue where
         rep (x : xs) = x : rep xs
     in "\"" <> pretty(rep v) <> "\"" 
 
-  pretty (Stime v) = pretty v
+  pretty (Stime (Time v)) = pretty v
   pretty (Svec2f (v1,v2)) = pretty v1 <+> pretty v2
   pretty (Svec3f (v1,v2,v3)) = pretty v1 <+> pretty v2 <+> pretty v3
   pretty (Mbool vs) =

@@ -1,7 +1,12 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Data.VRML.Types where
 
@@ -138,26 +143,29 @@ data FieldType
   | SFVec3f
   deriving (Generic,Show,Eq)
 
+newtype Color = Color (Float,Float,Float) deriving (Generic,Show,Eq)
+newtype Time = Time Double deriving (Generic,Show,Eq)
+
 data FieldValue
   = Sbool Bool
-  | Scolor (Float,Float,Float)
+  | Scolor Color
   | Sfloat Float
   | Simage [Int32]
   | Sint32 Int32
   | Snode (Maybe NodeStatement)
   | Srotation (Float,Float,Float,Float)
   | Sstring String
-  | Stime Double
+  | Stime Time
   | Svec2f (Float,Float)
   | Svec3f (Float,Float,Float)
   | Mbool [Bool]
-  | Mcolor [(Float,Float,Float)]
+  | Mcolor [Color]
   | Mfloat [Float]
   | Mint32 [Int32]
   | Mnode [NodeStatement]
   | Mrotation [(Float,Float,Float,Float)]
   | Mstring [String]
-  | Mtime [Double]
+  | Mtime [Time]
   | Mvec2f [(Float,Float)]
   | Mvec3f [(Float,Float,Float)]
   deriving (Generic,Show,Eq)
@@ -186,3 +194,105 @@ instance Show NodeTypeId where
 instance Show FieldId where
   show (FieldId s) = show s
 
+
+instance Semigroup Node where
+  (<>) a b = 
+    let (Node (NodeTypeId xname) xbody) = a
+        (Node (NodeTypeId yname) ybody) = b
+    in Node (NodeTypeId (xname ++ yname)) (xbody++ybody)
+
+instance Monoid Node where
+  mempty = Node "" []
+
+class ToNode a where
+  toNode :: a -> Node
+  default toNode :: (Generic a, ToNode' (Rep a)) => a -> Node
+  toNode a = toNode' (from a)
+
+instance ToNode Bool where
+  toNode a = Node "" [(FV "" (Sbool a))]
+
+instance ToNode Color where
+  toNode a = Node "" [(FV "" (Scolor a))]
+
+instance ToNode Float where
+  toNode a = Node "" [(FV "" (Sfloat a))]
+
+instance ToNode Int32 where
+  toNode a = Node "" [(FV "" (Sint32 a))]
+
+instance ToNode Node where
+  toNode a = Node "" [(FV "" (Snode (Just (NodeStatement a))))]
+
+instance ToNode (Float,Float,Float,Float) where
+  toNode a = Node "" [(FV "" (Srotation a))]
+
+instance ToNode String where
+  toNode a = Node "" [(FV "" (Sstring a))]
+
+instance ToNode Time where
+  toNode a = Node "" [(FV "" (Stime a))]
+
+instance ToNode (Float,Float) where
+  toNode a = Node "" [(FV "" (Svec2f a))]
+
+instance ToNode (Float,Float,Float) where
+  toNode a = Node "" [(FV "" (Svec3f a))]
+
+instance ToNode [Bool] where
+  toNode a = Node "" [(FV "" (Mbool a))]
+
+instance ToNode [Color] where
+  toNode a = Node "" [(FV "" (Mcolor a))]
+
+instance ToNode [Float] where
+  toNode a = Node "" [(FV "" (Mfloat a))]
+
+instance ToNode [Int32] where
+  toNode a = Node "" [(FV "" (Mint32 a))]
+
+instance ToNode [Node] where
+  toNode a = Node "" [(FV "" (Mnode (map NodeStatement a)))]
+
+instance ToNode [(Float,Float,Float,Float)] where
+  toNode a = Node "" [(FV "" (Mrotation a))]
+
+instance ToNode [Time] where
+  toNode a = Node "" [(FV "" (Mtime a))]
+
+instance ToNode [String] where
+  toNode a = Node "" [(FV "" (Mstring a))]
+
+instance ToNode [(Float,Float)] where
+  toNode a = Node "" [(FV "" (Mvec2f a))]
+
+instance ToNode [(Float,Float,Float)] where
+  toNode a = Node "" [(FV "" (Mvec3f a))]
+
+class ToNode' f where
+  toNode' :: f a -> Node
+
+instance ToNode' U1 where
+  toNode' U1 = mempty
+
+instance (ToNode' f, ToNode' g) => ToNode' (f :+: g) where
+  toNode' (L1 x) = toNode' x
+  toNode' (R1 x) = toNode' x
+
+instance (ToNode' f, ToNode' g) => ToNode' (f :*: g) where
+  toNode' (x :*: y) = toNode' x <> toNode' y
+
+instance (ToNode c) => ToNode' (K1 i c) where
+  toNode' (K1 x) = toNode x
+
+instance (Selector c, ToNode' f) => ToNode' (M1 S c f) where
+  toNode' a@(M1 x) =
+    case toNode' x of
+      (Node "" [(FV _ v)]) -> Node "" [(FV (FieldId (selName a)) v)]
+      v@(Node x _) -> Node "" [(FV (FieldId (selName a)) (Snode (Just (NodeStatement v))))]
+
+instance (Constructor c, ToNode' f) => ToNode' (M1 C c f) where
+  toNode' a@(M1 x) = Node (NodeTypeId (conName a)) [] <> toNode' x
+
+instance (ToNode' f) => ToNode' (M1 D c f) where
+  toNode' (M1 x) = toNode' x
