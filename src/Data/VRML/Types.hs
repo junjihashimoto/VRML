@@ -7,6 +7,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Data.VRML.Types where
 
@@ -204,6 +205,12 @@ instance Semigroup Node where
 instance Monoid Node where
   mempty = Node "" []
 
+class (ToNode a) => ToNodeLike a where
+  toNodeLike :: NodeLike b => a -> b
+  toNodeLike a =
+    let (Node name body) = toNode a
+    in node name body
+
 class ToNode a where
   toNode :: a -> Node
   default toNode :: (Generic a, ToNode' (Rep a)) => a -> Node
@@ -268,6 +275,10 @@ instance ToNode [(Float,Float)] where
 
 instance ToNode [(Float,Float,Float)] where
   toNode a = Node "" [(FV "" (Mvec3f a))]
+
+instance ToNode a => ToNode (Maybe a) where
+  toNode (Just a) = toNode a
+  toNode Nothing = mempty
 
 class ToNode' f where
   toNode' :: f a -> Node
