@@ -131,6 +131,9 @@ data FieldType
   | MFTime
   | MFVec2f
   | MFVec3f
+  | MFNode
+  | MFRotation
+  | MFInt32
   | SFBool
   | SFColor
   | SFFloat
