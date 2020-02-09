@@ -45,7 +45,7 @@ instance NodeLike FieldValue where
 instance Show Statement where
   show (StNode (NodeStatement (Node i b))) = "node " ++ show i ++ " " ++ show b
   show (StNode s) = "StNode (" ++ show s ++ ")"
-  show (StProto s) = "StProto (" ++ show s
+  show (StProto s) = "StProto (" ++ show s ++ ")"
   show (StRoute s) = "StRoute (" ++ show s ++ ")"
 
 data NodeStatement
@@ -208,80 +208,76 @@ instance Semigroup Node where
 instance Monoid Node where
   mempty = Node "" []
 
-class (ToNode a) => ToNodeLike a where
-  toNodeLike :: NodeLike b => a -> b
-  toNodeLike a =
-    let (Node name body) = toNode a
+class ToNode a where
+  toNode :: NodeLike b => a -> b
+  default toNode :: (Generic a, ToNode' (Rep a), NodeLike b) => a -> b
+  toNode a =
+    let (Node name body) = toNode' (from a)
     in node name body
 
-class ToNode a where
-  toNode :: a -> Node
-  default toNode :: (Generic a, ToNode' (Rep a)) => a -> Node
-  toNode a = toNode' (from a)
-
 instance ToNode Bool where
-  toNode a = Node "" [(FV "" (Sbool a))]
+  toNode a = node "" [(FV "" (Sbool a))]
 
 instance ToNode Color where
-  toNode a = Node "" [(FV "" (Scolor a))]
+  toNode a = node "" [(FV "" (Scolor a))]
 
 instance ToNode Float where
-  toNode a = Node "" [(FV "" (Sfloat a))]
+  toNode a = node "" [(FV "" (Sfloat a))]
 
 instance ToNode Int32 where
-  toNode a = Node "" [(FV "" (Sint32 a))]
+  toNode a = node "" [(FV "" (Sint32 a))]
 
 instance ToNode Node where
-  toNode a = Node "" [(FV "" (Snode (Just (NodeStatement a))))]
+  toNode a = node "" [(FV "" (Snode (Just (NodeStatement a))))]
 
 instance ToNode (Float,Float,Float,Float) where
-  toNode a = Node "" [(FV "" (Srotation a))]
+  toNode a = node "" [(FV "" (Srotation a))]
 
 instance ToNode String where
-  toNode a = Node "" [(FV "" (Sstring a))]
+  toNode a = node "" [(FV "" (Sstring a))]
 
 instance ToNode Time where
-  toNode a = Node "" [(FV "" (Stime a))]
+  toNode a = node "" [(FV "" (Stime a))]
 
 instance ToNode (Float,Float) where
-  toNode a = Node "" [(FV "" (Svec2f a))]
+  toNode a = node "" [(FV "" (Svec2f a))]
 
 instance ToNode (Float,Float,Float) where
-  toNode a = Node "" [(FV "" (Svec3f a))]
+  toNode a = node "" [(FV "" (Svec3f a))]
 
 instance ToNode [Bool] where
-  toNode a = Node "" [(FV "" (Mbool a))]
+  toNode a = node "" [(FV "" (Mbool a))]
 
 instance ToNode [Color] where
-  toNode a = Node "" [(FV "" (Mcolor a))]
+  toNode a = node "" [(FV "" (Mcolor a))]
 
 instance ToNode [Float] where
-  toNode a = Node "" [(FV "" (Mfloat a))]
+  toNode a = node "" [(FV "" (Mfloat a))]
 
 instance ToNode [Int32] where
-  toNode a = Node "" [(FV "" (Mint32 a))]
+  toNode a = node "" [(FV "" (Mint32 a))]
 
 instance ToNode [Node] where
-  toNode a = Node "" [(FV "" (Mnode (map NodeStatement a)))]
+  toNode a = node "" [(FV "" (Mnode (map NodeStatement a)))]
 
 instance ToNode [(Float,Float,Float,Float)] where
-  toNode a = Node "" [(FV "" (Mrotation a))]
+  toNode a = node "" [(FV "" (Mrotation a))]
 
 instance ToNode [Time] where
-  toNode a = Node "" [(FV "" (Mtime a))]
+  toNode a = node "" [(FV "" (Mtime a))]
 
 instance ToNode [String] where
-  toNode a = Node "" [(FV "" (Mstring a))]
+  toNode a = node "" [(FV "" (Mstring a))]
 
 instance ToNode [(Float,Float)] where
-  toNode a = Node "" [(FV "" (Mvec2f a))]
+  toNode a = node "" [(FV "" (Mvec2f a))]
 
 instance ToNode [(Float,Float,Float)] where
-  toNode a = Node "" [(FV "" (Mvec3f a))]
+  toNode a = node "" [(FV "" (Mvec3f a))]
 
 instance ToNode a => ToNode (Maybe a) where
   toNode (Just a) = toNode a
-  toNode Nothing = mempty
+  toNode Nothing = node "" []
 
 class ToNode' f where
   toNode' :: f a -> Node

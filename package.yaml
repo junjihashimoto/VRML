@@ -1,38 +1,50 @@
 name:                VRML
 version:             0.1.0.0
-github:              "githubuser/VRML"
-license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2020 Author name here"
-
+github:              "junjihashimoto/VRML"
+license:             MIT
+author:              "Junji Hashimoto"
+maintainer:          "junji.hashimoto@gmail.com"
 extra-source-files:
 - README.md
 - ChangeLog.md
 
-# Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
+synopsis:            VRML parser and generator for Haskell
+category:            Graphics
 
-# To avoid duplicated efforts in documentation and dealing with the
-# complications of embedding Haddock markup inside cabal files, it is
-# common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/VRML#readme>
+description:         Please see the README on GitHub at https://github.com/junjihashimoto/VRML#readme
 
 dependencies:
 - base >= 4.7 && < 5
 - megaparsec
 - text
 - prettyprinter
-- show-prettyprint
 - aeson
 
 library:
   source-dirs: src
 
 executables:
-  VRML-exe:
-    main:                Main.hs
+  vrml2haskell:
+    main:                vrml2haskell.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - VRML
+    - pretty-simple
+  vrmlfmt:
+    main:                vrmlfmt.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - VRML
+  vrmlproto2haskell:
+    main:                vrmlproto2haskell.hs
     source-dirs:         app
     ghc-options:
     - -threaded
