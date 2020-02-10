@@ -33,7 +33,7 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - VRML
-    - pretty-simple
+    - pretty-simple >= 3.0.0.0
   vrmlfmt:
     main:                vrmlfmt.hs
     source-dirs:         app
